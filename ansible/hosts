@@ -1,0 +1,6 @@
+
+[kafka]
+test-kafka-broker-[001-003]
+
+[zookeeper]
+test-kafka-zookeeper-[001-003]

@@ -1,0 +1,23 @@
+---
+
+component_tag: test
+
+# Confluent settings
+confluent_version: 5.0
+scala_version: 2.11
+
+# Kafka settings
+zk_client_port: 2181
+kafka_datadir: /data/kafka
+log_retention_hours: 168
+log_retention_bytes: -1
+message_max_bytes: 20000000
+offsets_topic_replication_factor: 1
+offsets_retention_minutes: 43200   # 30 days
+transaction_state_log_replication_factor: 1
+transaction_state_log_min_isr: 1
+java_max_heap_size: 1G
+
+# Settings for SSL connection
+attributes: "OU=MyDepartment, O=MyCompany, L=MyCity, C=AA"
+days_valid: 365

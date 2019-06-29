@@ -1,0 +1,6 @@
+---
+
+- name: reload kafka
+  service:
+    name: confluent-kafka
+    state: restarted

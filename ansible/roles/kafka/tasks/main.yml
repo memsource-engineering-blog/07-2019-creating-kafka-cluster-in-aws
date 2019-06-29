@@ -1,0 +1,142 @@
+---
+
+- name: add Confluent repository key
+  apt_key:
+    url: https://packages.confluent.io/deb/{{ confluent_version }}/archive.key
+    state: present
+
+- name: add Confluent repository
+  apt_repository:
+    repo: "{{ item }}"
+    update_cache: true
+  with_items:
+    - deb [arch=amd64] https://packages.confluent.io/deb/{{ confluent_version }} stable main
+
+- name: install Java
+  apt:
+    name: default-jre
+
+- name: install Confluent platform
+  apt:
+    name: confluent-platform-oss-{{ scala_version }}
+
+# the user cp-kafka is created by the previous step (install Confluent)
+# a group named cp-kafka is not created; therefore, we use group root.
+- name: set owner/group of kafka data directory
+  file:
+    path: "{{ kafka_datadir }}"
+    owner: cp-kafka
+    group: root
+    state: directory
+
+- name: set server.properties file
+  template:
+    src: templates/server.properties.j2
+    dest: /etc/kafka/server.properties
+    owner: cp-kafka
+    group: root
+    mode: 0600
+    backup: true
+  notify: reload kafka
+
+- name: set kafka-server-start file
+  template:
+    src: templates/kafka-server-start.j2
+    dest: /usr/bin/kafka-server-start
+    owner: root
+    group: root
+    mode: 0755
+    backup: true
+  notify: reload kafka
+
+- name: create ssl directory
+  file:
+    path: /etc/kafka/ssl
+    state: directory
+
+- name: generate keystore
+  shell: keytool -genkey -keyalg RSA -keystore /etc/kafka/ssl/kafka.keystore.jks \
+         -alias {{ ansible_fqdn }} -storepass {{ broker_keypass_pwd }} \
+         -validity {{ days_valid }} -keypass {{ broker_keypass_pwd }} \
+         -dname "CN={{ ansible_fqdn }}, {{ attributes }}"
+  args:
+    creates: /etc/kafka/ssl/kafka.keystore.jks
+  register: keystore
+
+- name: get certificate from keystore
+  shell: keytool -keystore /etc/kafka/ssl/kafka.keystore.jks -alias {{ ansible_fqdn }} -certreq \
+         -file /etc/kafka/ssl/kafka.cert-file \
+         -storepass {{ broker_keypass_pwd }} \
+         -keypass {{ broker_keypass_pwd }} -noprompt
+  when: keystore.changed
+
+- name: copy CA certificate to remote machine
+  copy:
+    src: files/CA-certificate
+    dest: /tmp/CA-certificate
+    owner: cp-kafka
+    group: root
+    mode: 0644
+  when:
+    - keystore.changed
+
+- name: create truststore with CA certificate
+  java_cert:
+    cert_path: /tmp/CA-certificate
+    cert_alias: CARoot
+    keystore_create: true
+    keystore_path: /etc/kafka/ssl/kafka.truststore.jks
+    keystore_pass: "{{ broker_keypass_pwd }}"
+    state: present
+  when: keystore.changed
+
+- name: copy broker's certificate to local host
+  fetch:
+    src: /etc/kafka/ssl/kafka.cert-file
+    dest: ../roles/kafka/files/kafka.cert-files
+  when:
+    - keystore.changed
+
+- name: sign certificate with CA (locally)
+  become: false
+  shell: openssl x509 -req -CA ../roles/kafka/files/CA-certificate \
+         -CAkey ../roles/kafka/files/CA-encrypted-private-key -days {{ days_valid }} \
+         -in ../roles/kafka/files/kafka.cert-files/{{ ansible_nodename }}/etc/kafka/ssl/kafka.cert-file \
+         -out ../roles/kafka/files/kafka.cert-files/{{ ansible_nodename }}/etc/kafka/ssl/kafka.cert-signed \
+         -CAcreateserial -passin pass:{{ CA_private_key_pwd }}
+  delegate_to: 127.0.0.1
+  when:
+    - keystore.changed
+
+- name: copy signed broker's certificate to remote host
+  copy:
+    src: ../roles/kafka/files/kafka.cert-files/{{ ansible_nodename }}/etc/kafka/ssl/kafka.cert-signed
+    dest: /etc/kafka/ssl/kafka.cert-signed
+    owner: cp-kafka
+    group: root
+    mode: 0600
+  when:
+    - keystore.changed
+
+- name: import into keystore the CA certificate
+  java_cert:
+    cert_path: /tmp/CA-certificate
+    cert_alias: CARoot
+    keystore_path: /etc/kafka/ssl/kafka.keystore.jks
+    keystore_pass: "{{ broker_keypass_pwd }}"
+    state: present
+  when: keystore.changed
+
+- name: import into keystore the broker's signed certificate
+  shell: keytool -keystore /etc/kafka/ssl/kafka.keystore.jks -alias {{ ansible_fqdn }} -import \
+                -file /etc/kafka/ssl/kafka.cert-signed \
+                -storepass {{ broker_keypass_pwd }} \
+                -keypass {{ broker_keypass_pwd }} -noprompt
+  when: keystore.changed
+  notify: reload kafka
+
+- name: start Kafka broker
+  service:
+    name: confluent-kafka
+    enabled: true
+    state: started

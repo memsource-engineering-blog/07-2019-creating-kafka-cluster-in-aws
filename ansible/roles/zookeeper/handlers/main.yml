@@ -1,0 +1,6 @@
+---
+
+- name: reload zookeeper
+  service:
+    name: confluent-zookeeper
+    state: restarted
