@@ -1,5 +1,5 @@
-module "hadoop-security-group" {
-  source = "../modules/hadoop-security-group/"
+module "kafka-cluster-security-group" {
+  source = "../modules/kafka-cluster-security-group/"
 
   environment = "${var.environment}"
   vpc_name    = "${var.vpc_name}"
@@ -39,7 +39,7 @@ module "kafka" {
 
   image_filter    = "my-image-name-*"
   instance_type   = "t2.medium"
-  instance_count  = 4
+  instance_count  = 3
   key_name        = "${var.master_key}"
   external_ips    = "${local.allowed_ips}"
   port_plain      = "9094"

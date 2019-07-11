@@ -22,9 +22,9 @@ data "aws_subnet_ids" "public_subnets" {
   }
 }
 
-data "aws_security_group" "hadoop" {
+data "aws_security_group" "kafka_cluster" {
   tags = {
-    Name = "hadoop-security-group"
+    Name = "kafka-cluster-security-group"
   }
 }
 
@@ -34,7 +34,7 @@ resource "aws_instance" "kafka" {
   subnet_id     = "${tolist(data.aws_subnet_ids.public_subnets.ids)[0]}"
   key_name      = "${var.key_name}"
 
-  vpc_security_group_ids      = ["${data.aws_security_group.hadoop.id}", "${aws_security_group.kafka.id}"]
+  vpc_security_group_ids      = ["${data.aws_security_group.kafka_cluster.id}", "${aws_security_group.kafka.id}"]
   associate_public_ip_address = true
   availability_zone           = "${var.availability_zone}"
 
@@ -78,12 +78,12 @@ resource "aws_security_group_rule" "allow_kafka_port_peers" {
   security_group_id = "${aws_security_group.kafka.id}"
 }
 
-resource "aws_security_group_rule" "allow_kafka_port_local_hadoop_sg" {
+resource "aws_security_group_rule" "allow_kafka_port_local_kafka_cluster_sg" {
   type                     = "ingress"
   from_port                = "${var.port_plain}"
   to_port                  = "${var.port_plain}"
   protocol                 = "tcp"
-  source_security_group_id = "${data.aws_security_group.hadoop.id}"
+  source_security_group_id = "${data.aws_security_group.kafka_cluster.id}"
 
   security_group_id = "${aws_security_group.kafka.id}"
 }
@@ -115,7 +115,7 @@ resource "aws_security_group_rule" "allow_kafka_port_ssl_haddop_sg" {
   from_port                = "${var.port_ssl}"
   to_port                  = "${var.port_ssl}"
   protocol                 = "tcp"
-  source_security_group_id = "${data.aws_security_group.hadoop.id}"
+  source_security_group_id = "${data.aws_security_group.kafka_cluster.id}"
 
   security_group_id = "${aws_security_group.kafka.id}"
 }

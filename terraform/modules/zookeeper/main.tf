@@ -22,9 +22,9 @@ data "aws_subnet_ids" "public_subnets" {
   }
 }
 
-data "aws_security_group" "hadoop" {
+data "aws_security_group" "kafka_cluster" {
   tags = {
-    Name = "hadoop-security-group"
+    Name = "kafka-cluster-security-group"
   }
 }
 
@@ -34,7 +34,7 @@ resource "aws_instance" "zookeeper" {
   subnet_id     = "${tolist(data.aws_subnet_ids.public_subnets.ids)[2]}"
   key_name      = "${var.key_name}"
 
-  vpc_security_group_ids      = ["${data.aws_security_group.hadoop.id}", "${aws_security_group.zookeeper.id}"]
+  vpc_security_group_ids      = ["${data.aws_security_group.kafka_cluster.id}", "${aws_security_group.zookeeper.id}"]
   associate_public_ip_address = true
   availability_zone           = "${var.availability_zone}"
 
@@ -69,7 +69,7 @@ resource "aws_security_group_rule" "allow_zookeeper_quorum" {
   from_port                = "${var.client_port}"
   to_port                  = "${var.client_port}"
   protocol                 = "tcp"
-  source_security_group_id = "${data.aws_security_group.hadoop.id}"
+  source_security_group_id = "${data.aws_security_group.kafka_cluster.id}"
 
   security_group_id = "${aws_security_group.zookeeper.id}"
 }

@@ -1,1 +1,4 @@
-{{ inventory_hostname_short.split('-') | last | int }}
+{% for host in groups[ "zookeeper" ]|sort %}
+{% if hostvars[host].ansible_default_ipv4.address == ansible_default_ipv4.address %}
+{{loop.index}}
+{% endfor %}

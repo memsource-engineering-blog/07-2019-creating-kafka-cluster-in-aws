@@ -4,9 +4,9 @@ data "aws_vpc" "vpc" {
   }
 }
 
-resource "aws_security_group" "hadoop" {
-  name        = "hadoop-security-group"
-  description = "Allow hadoop traffic"
+resource "aws_security_group" "kafka_cluster" {
+  name        = "kafka-cluster-security-group"
+  description = "Allow kafka_cluster traffic"
   vpc_id      = "${data.aws_vpc.vpc.id}"
 
   egress {
@@ -17,26 +17,26 @@ resource "aws_security_group" "hadoop" {
   }
 
   tags {
-    Name = "hadoop-security-group"
+    Name = "kafka-cluster-security-group"
   }
 }
 
-resource "aws_security_group_rule" "allow_hadoop_ssh" {
+resource "aws_security_group_rule" "allow_kafka_cluster_ssh" {
   type        = "ingress"
   from_port   = 22
   to_port     = 22
   protocol    = "tcp"
   cidr_blocks = ["${var.ssh_ips}"]
 
-  security_group_id = "${aws_security_group.hadoop.id}"
+  security_group_id = "${aws_security_group.kafka_cluster.id}"
 }
 
-resource "aws_security_group_rule" "allow_hadoop_self_ping" {
+resource "aws_security_group_rule" "allow_kafka_cluster_self_ping" {
   type      = "ingress"
   from_port = 8
   to_port   = 0
   protocol  = "icmp"
   self      = true
 
-  security_group_id = "${aws_security_group.hadoop.id}"
+  security_group_id = "${aws_security_group.kafka_cluster.id}"
 }
