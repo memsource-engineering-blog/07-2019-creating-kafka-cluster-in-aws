@@ -1,0 +1,54 @@
+---
+
+- name: add Confluent repository key
+  apt_key:
+    url: https://packages.confluent.io/deb/{{ confluent_version }}/archive.key
+    state: present
+
+- name: add Confluent repository
+  apt_repository:
+    repo: "{{ item }}"
+    update_cache: true
+  with_items:
+    - deb [arch=amd64] https://packages.confluent.io/deb/{{ confluent_version }} stable main
+
+- name: install Java
+  apt:
+    name: default-jre
+
+- name: install Confluent platform
+  apt:
+    name: confluent-platform-oss-{{ scala_version}}
+
+- name: set owner/group of zookeeper data directory
+  file:
+    path: "{{ zk_datadir }}"
+    owner: cp-kafka
+    group: root
+    state: directory
+
+- name: create myid file
+  template:
+    src: templates/myid.j2
+    dest: "{{ zk_datadir }}/myid"
+    owner: cp-kafka
+    group: root
+    mode: 0600
+    backup: true
+  notify: reload zookeeper
+
+- name: set zookeeper.properties file
+  template:
+    src: templates/zookeeper.properties.j2
+    dest: /etc/kafka/zookeeper.properties
+    owner: cp-kafka
+    group: root
+    mode: 0600
+    backup: true
+  notify: reload zookeeper
+
+- name: start Zookeeper
+  service:
+    name: confluent-zookeeper
+    enabled: true
+    state: started

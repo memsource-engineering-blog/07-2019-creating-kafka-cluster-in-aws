@@ -1,0 +1,8 @@
+---
+
+confluent_version: 5.0
+scala_version: 2.11
+zk_datadir: /data/zookeeper
+zk_client_port: 2181
+max_client_cnxns: 100
+component_tag: test
